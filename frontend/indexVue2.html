@@ -1,0 +1,170 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bots Messangers</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="background " id="appVue">
+
+        <div class="bots_header">
+            <h4>МОИ БОТИКИ</h4>
+            
+            <div class="bots_header_items flex-box">
+                <div class="item" v-on:click="sendGetHttp">
+                    Ботов: {{countBots}}
+                </div>
+                <div class="item">
+                    Пользователей: {{countUsers}}
+                </div>
+                <div class="item" >
+                    Сообщений: {{setCountMessages()}}
+                </div>
+            </div>
+        </div>
+
+        <div id="bots_container" class="flex-box">
+            <div class="bot_content"   v-for="item in items">
+
+                    
+                        <app-message v-model:item="item"></app-message>
+
+
+            </div>     
+        </div>
+
+    </div>
+</div>
+
+ 
+    <!-- <script src="js/main.js"></script> -->
+    <script src="https://unpkg.com/vue@next"></script>
+
+
+<script>
+
+
+let  app =  Vue.createApp({
+  data() {
+    return {
+      items: [],
+      countBots: 0,
+      countUsers: 0
+      
+    }
+  },
+  methods: {
+
+    sendGetHttp(){
+        
+            let xhr = new XMLHttpRequest();
+            xhr.open("GET", "http://localhost:8081", false);
+            xhr.send();
+            let json = JSON.parse(xhr.responseText);
+            this.items = json.BotsContents;
+            console.log(this.items);
+
+            this.countBots = this.items.length;
+
+            this.countUsers = json.UsersCount;
+
+            window.a = this;
+        
+    },
+
+    //не получается интервально выводить сообщения
+    // interval(){
+    //     setInterval(function(){
+    //         console.log("setInterval");
+    //        window.a.items = JSON.parse(localStorage.getItem('model')).BotsContents;
+    //         console.log(window.a.items);
+
+    //     }, 2000);
+    // },
+    
+    //здесь считаем общее количество сообщений всех ботов
+    setCountMessages(){
+        let messages = 0
+        for (let i=0; i<this.items.length; i++){
+
+            messages += this.items[i].Messages.length
+            
+        }
+       return messages
+    },
+
+  },
+
+  //здесь запускаем запрос на апишку во время загрузки страницы
+  mounted(){
+    this.sendGetHttp();
+
+
+  }
+ 
+})
+  app.mount('#appVue');
+
+app.component('app-message', {
+
+    props: ['item'],
+    methods: {
+        //форматирование даты и времени сообщения
+        formatDateTime(dateTime){
+            let dataTimeUser = new Date(dateTime * 1000);
+            return dataTimeUser.toLocaleDateString() + " " + dataTimeUser.toLocaleTimeString().slice(0, -3);
+        },
+        //перевернём массив сообщений, чтобы выводились сначала самые новые
+        reverseItems(itemsReverse){
+            console.log("reverse");
+            return itemsReverse.slice().reverse();
+            
+        }
+    },
+    template: ` <div class="bot_name">
+                    {{item.Name}}
+                </div>
+                <div class="messages_container" >
+                <div class="message" v-bind:class="{importantMessage: message.IsImportant}" v-for="message in reverseItems(item.Messages)">
+                    <div  class="username ghost">
+                        {{message.Username}}
+                    </div>
+                    <div class="content">
+                        {{message.Content}}
+                    </div>
+                    <div class="datetime ghost">
+                        {{formatDateTime(message.DateTime)}}
+                    </div>
+                </div>
+                </div>
+                `
+})
+
+function   sendGetHttp(){
+        
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", "http://localhost:8081", false);
+        xhr.send();
+        let data = xhr.responseText;
+       
+       return  data;
+
+}
+
+    setInterval(function(){
+
+        window.a.items = JSON.parse(sendGetHttp()).BotsContents;
+        // console.log(localStorage.getItem('model'));
+    }, 2000);
+
+</script>
+</body>
+</html>
+
+
+

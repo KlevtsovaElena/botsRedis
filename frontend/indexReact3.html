@@ -1,0 +1,156 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bots Messangers React</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="background " >
+
+        <div class="bots_header" >
+            <h4>МОИ БОТИКИ</h4>
+            <div id="appReact">
+
+            </div>
+        </div>
+
+        
+        <div id="bots_container" class="flex-box"></div>
+        
+
+    </div>
+</div>
+
+ 
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+
+    
+   
+let json, usersCount, botsCount, messagesCount, items;
+
+function sendGetHttp(){    
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", "http://localhost:8081", false);
+        xhr.send();
+        json = JSON.parse(xhr.responseText);
+            
+        items = json.BotsContents;
+
+        usersCount = json.UsersCount;
+
+        botsCount = items.length;
+
+        messagesCount = 0;
+        for (let i=0;i<items.length;i++){
+            messagesCount += items[i].Messages.length
+        }
+        
+        renderHeader();
+
+        renderContent();
+
+    }    
+
+//классовый компонент
+class BotsRender extends React.Component{
+    
+    formatDateTime(dateTime){
+            let dataTimeUser = new Date(dateTime * 1000);
+            return dataTimeUser.toLocaleDateString() + " " + dataTimeUser.toLocaleTimeString().slice(0, -3);
+        }
+
+    render(){return(
+        <div class="flex-box">
+            {items.map(item =>
+        
+            <div class="bot_content">
+                     <div class="bot_name">{item.Name}</div>
+                     <div class="messages_container"> {item.Messages.reverse().map((message, index) => 
+                    <ContentBot isImportant={message.IsImportant} username={message.Username} content={message.Content} dateTime={this.formatDateTime(message.DateTime)}
+                        key={index}/>    
+                        )}
+                    
+                    </div>
+            </div>    
+            
+            )}
+        </div>
+    )
+    }
+}
+
+sendGetHttp();
+
+//фуекциональный компонент
+function ContentBot(props){
+    return(
+        
+            
+            <div className={props.isImportant?"importantMessage":"message"}>
+
+                <div class="username ghost">{props.username}</div>
+
+                <div class="content">{props.content}</div>
+
+                <div class="datetime ghost">{props.dateTime}</div>
+
+            </div>        
+    
+    )
+}
+
+
+
+function renderContent(){
+
+    ReactDOM
+    .createRoot (
+        document.getElementById("bots_container")
+    )
+    .render(<BotsRender/>)
+
+}
+
+function renderHeader(){
+    ReactDOM
+        .createRoot (
+            document.getElementById("appReact")
+        )
+
+        .render(
+            
+            <div class="bots_header_items flex-box">
+                        <div class="item">
+                            Ботов: {botsCount}
+                        </div>
+                        <div class="item">
+                            Пользователей: {usersCount}
+                        </div>
+                        <div class="item" >
+                            Сообщений: {messagesCount}
+                        </div>
+            </div> 
+        
+            ); 
+}
+
+setInterval(function(){
+    console.log("setInterval");
+    sendGetHttp();
+}, 3000)
+
+</script>
+</body>
+</html>
+
+
+

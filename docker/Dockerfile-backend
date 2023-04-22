@@ -1,0 +1,10 @@
+FROM ubuntu:latest
+
+RUN apt-get update
+COPY ./certs/ /etc/ssl/certs/
+RUN apt-get update --fix-missing
+
+RUN apt-get install golang -y
+
+
+CMD cd /app && go run bot.go

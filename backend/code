@@ -1,0 +1,454 @@
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+)
+
+func main() {
+
+	//создаем соединение с БД
+	db, err := sql.Open("mysql", "root:nordic123@tcp(mysql:3306)/inordic")
+	if err != nil {
+		fmt.Println("НЕ подключились к БД", err)
+	}
+
+	//запускаем цикл проверки задач в БД
+	for range time.Tick(time.Minute) {
+
+		//каждую минуту заходим в БД и смотрим какие задачи нужно отправить
+		_, errSelect := db.Query("INSERT INTO `users`(`username`,`first_name`,`last_name`) VALUES('тест1', 'тест2', 'тест3')")
+		if errSelect != nil {
+			fmt.Println("Ошибка запроса ", errSelect)
+		} else {
+			fmt.Println("запись добавлена")
+		}
+
+		//отправляем задачи в телеграм
+
+		//помечаем что эти задачи уже отправлены
+
+	}
+
+}
+
+
+рабочий код1
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+)
+
+type ResponseT struct {
+	Ok     bool `json:"ok"`
+	Result []struct {
+		UpdateID int `json:"update_id"`
+		Message  struct {
+			MessageID int `json:"message_id"`
+			From      struct {
+				ID           int    `json:"id"`
+				IsBot        bool   `json:"is_bot"`
+				FirstName    string `json:"first_name"`
+				LastName     string `json:"last_name"`
+				Username     string `json:"username"`
+				LanguageCode string `json:"language_code"`
+			} `json:"from"`
+			Chat struct {
+				ID        int    `json:"id"`
+				FirstName string `json:"first_name"`
+				Type      string `json:"type"`
+			} `json:"chat"`
+			Date int    `json:"date"`
+			Text string `json:"text"`
+		} `json:"message"`
+	} `json:"result"`
+}
+
+type UserT struct {
+	ID         int
+	Username   string
+	FirstName  string
+	LastName   string
+	Messages   []MessageT
+	ReqDate    int
+	LastVisite int
+}
+
+func (u *UserT) addMessage(text string, messageTime int) {
+
+	message := MessageT{}
+	message.Content = text
+	message.Date = messageTime
+	u.Messages = append(u.Messages, message)
+
+}
+
+type MessageT struct {
+	Content string
+	Date    int
+}
+
+var host string = "https://api.telegram.org/bot"
+
+var tokens = [5]string{
+	"6131123688:AAGV7bDvX4aX4_n-ShaiKjXlpUvlnfXsQFY",
+	"6266036859:AAGLaQvcjIR8BgkymXNwP0rSfqx2lzQvdmA",
+	"6114246715:AAHeEIQBYooYdGG-Dgjqv0jLxPH6zxGJRNY",
+	"6089892871:AAHBVa5OpNIg0WYzvIDXj7x8nWqX3n0h6EQ",
+	"6025286750:AAHWYyfw1g4-QCP6iopsR5xkMprILA3vdkI",
+}
+
+var lastMessage = [5]int{0, 0, 0, 0, 0}
+
+func main() {
+
+	//создаем соединение с БД
+	db, err := sql.Open("mysql", "root:nordic123@tcp(mysql:3306)/inordic")
+	if err != nil {
+		fmt.Println("НЕ подключились к БД", err)
+	}
+
+	//создали базу данных юзеров
+	usersDB := make(map[int]UserT)
+
+	//считываем из бд при включении
+	dataDb, _ := ioutil.ReadFile("db.json")
+	json.Unmarshal(dataDb, &usersDB)
+	fmt.Println(dataDb)
+
+	for range time.Tick(time.Second * 1) {
+		//отправляем запрос к Telegram API на получение сообщений длЯ каждого бота
+		for j := 0; j < len(tokens); j++ {
+			var url string = host + tokens[j] + "/getUpdates?offset=" + strconv.Itoa(lastMessage[j])
+
+			response, err := http.Get(url)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			data, _ := ioutil.ReadAll(response.Body)
+
+			//посмотреть данные
+			//fmt.Println(string(data))
+
+			//парсим данные из json
+			var responseObj ResponseT
+			json.Unmarshal(data, &responseObj)
+
+			//fmt.Println(responseObj)
+
+			//считаем количество новых сообщений
+			number := len(responseObj.Result)
+
+			//если сообщений нет - то дальше код не выполняем
+			if number < 1 {
+				continue
+			}
+
+			fmt.Println("сообщения из ", tokens[j])
+
+			//в цикле доставать инормацию по каждому сообщению
+			for i := 0; i < number; i++ {
+
+				text := responseObj.Result[i].Message.Text
+				chatId := responseObj.Result[i].Message.From.ID
+				messageTime := responseObj.Result[i].Message.Date
+				username := responseObj.Result[i].Message.From.Username
+				firstName := responseObj.Result[i].Message.From.FirstName
+				lastName := responseObj.Result[i].Message.From.LastName
+
+				//определяем зарегистрирован ли пользователь
+				_, exist := usersDB[chatId]
+				if !exist {
+					user := UserT{}
+					user.ID = chatId
+					user.Username = username
+					user.FirstName = firstName
+					user.LastName = lastName
+					user.LastVisite = messageTime
+					user.ReqDate = messageTime
+					user.addMessage(text, messageTime)
+
+					_, err := db.Query("INSERT INTO `users`(`id`,`username`,`first_name`,`last_name`, `date_req`) VALUES(?,?, ?, ?,?)", chatId, username, firstName, lastName, messageTime)
+					if err != nil {
+						fmt.Println("Ошибка сохранения пользователя ", err)
+					} else {
+						fmt.Println("пользователь добавлен")
+					}
+
+					usersDB[chatId] = user
+
+				} else {
+					user, _ := usersDB[chatId]
+					user.LastVisite = messageTime
+					user.addMessage(text, messageTime)
+
+					usersDB[chatId] = user
+				}
+
+				_, err := db.Query("INSERT INTO `messages`(`user_id`,`content`,`c_time`, `bot_id`, `is_important`) VALUES(?,?, ?,?,?)", chatId, text, messageTime, j+1, 0)
+				if err != nil {
+					fmt.Println("Ошибка сохранения сообщения ", err)
+				} else {
+					fmt.Println("сообщение добавлено")
+				}
+
+				//сохраняем в файл
+				file, _ := os.Create("db.json")
+				jsonString, _ := json.Marshal(usersDB)
+				file.Write(jsonString)
+
+				//отвечаем пользователю на его сообщение
+				go sendMessage(chatId, text, tokens[j])
+
+			}
+
+			//запоминаем update_id  последнего сообщения
+			lastMessage[j] = responseObj.Result[number-1].UpdateID + 1
+			fmt.Println(usersDB)
+		}
+	}
+
+}
+
+func sendMessage(chatId int, text string, token string) {
+	http.Get(host + token + "/sendMessage?chat_id=" + strconv.Itoa(chatId) + "&text=" + text)
+}
+
+
+рабочая версия api
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+)
+
+type ResponseT struct {
+	Ok     bool `json:"ok"`
+	Result []struct {
+		UpdateID int `json:"update_id"`
+		Message  struct {
+			MessageID int `json:"message_id"`
+			From      struct {
+				ID           int    `json:"id"`
+				IsBot        bool   `json:"is_bot"`
+				FirstName    string `json:"first_name"`
+				LastName     string `json:"last_name"`
+				Username     string `json:"username"`
+				LanguageCode string `json:"language_code"`
+			} `json:"from"`
+			Chat struct {
+				ID        int    `json:"id"`
+				FirstName string `json:"first_name"`
+				Type      string `json:"type"`
+			} `json:"chat"`
+			Date int    `json:"date"`
+			Text string `json:"text"`
+		} `json:"message"`
+	} `json:"result"`
+}
+
+type UserT struct {
+	ID         int
+	Username   string
+	FirstName  string
+	LastName   string
+	Messages   []MessageT
+	ReqDate    int
+	LastVisite int
+}
+
+func (u *UserT) addMessage(text string, messageTime int) {
+
+	message := MessageT{}
+	message.Content = text
+	message.Date = messageTime
+	u.Messages = append(u.Messages, message)
+
+}
+
+type MessageT struct {
+	Content string
+	Date    int
+}
+
+var host string = "https://api.telegram.org/bot"
+
+var tokens = [5]string{
+	"6131123688:AAGV7bDvX4aX4_n-ShaiKjXlpUvlnfXsQFY",
+	"6266036859:AAGLaQvcjIR8BgkymXNwP0rSfqx2lzQvdmA",
+	"6114246715:AAHeEIQBYooYdGG-Dgjqv0jLxPH6zxGJRNY",
+	"6089892871:AAHBVa5OpNIg0WYzvIDXj7x8nWqX3n0h6EQ",
+	"6025286750:AAHWYyfw1g4-QCP6iopsR5xkMprILA3vdkI",
+}
+
+var lastMessage = [5]int{0, 0, 0, 0, 0}
+
+var importansWord = [7]string{
+	"срочно",
+	"помогите",
+	"важно",
+	"конфликт",
+	"неприятн",
+	"паник",
+	"sos",
+}
+
+func main() {
+
+	//создаем соединение с БД
+	db, err := sql.Open("mysql", "root:nordic123@tcp(mysql:3306)/inordic")
+	if err != nil {
+		fmt.Println("НЕ подключились к БД", err)
+	}
+
+	//создали базу данных юзеров
+	usersDB := make(map[int]UserT)
+
+	//считываем из бд при включении
+	// dataDb, _ := ioutil.ReadFile("db.json")
+	// json.Unmarshal(dataDb, &usersDB)
+	// fmt.Println(dataDb)
+
+	for range time.Tick(time.Second * 1) {
+		//отправляем запрос к Telegram API на получение сообщений длЯ каждого бота
+		for j := 0; j < len(tokens); j++ {
+			var url string = host + tokens[j] + "/getUpdates?offset=" + strconv.Itoa(lastMessage[j])
+
+			response, err := http.Get(url)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			data, _ := ioutil.ReadAll(response.Body)
+
+			//посмотреть данные
+			//fmt.Println(string(data))
+
+			//парсим данные из json
+			var responseObj ResponseT
+			json.Unmarshal(data, &responseObj)
+
+			//fmt.Println(responseObj)
+
+			//считаем количество новых сообщений
+			number := len(responseObj.Result)
+
+			//если сообщений нет - то дальше код не выполняем
+			if number < 1 {
+				continue
+			}
+
+			fmt.Println("сообщения из ", tokens[j])
+
+			//в цикле доставать инормацию по каждому сообщению
+			for i := 0; i < number; i++ {
+
+				text := responseObj.Result[i].Message.Text
+				chatId := responseObj.Result[i].Message.From.ID
+				messageTime := responseObj.Result[i].Message.Date
+				username := responseObj.Result[i].Message.From.Username
+				firstName := responseObj.Result[i].Message.From.FirstName
+				lastName := responseObj.Result[i].Message.From.LastName
+
+				//определяем зарегистрирован ли пользователь, бд
+				exists := db.QueryRow("select count(id) from `users` where id=?", chatId)
+				// if err != nil {
+				// 	fmt.Println("Что-то не так с rows", err)
+				// }
+
+				fmt.Println(chatId, " ", exists)
+
+				var exist int
+				exists.Scan(&exist)
+
+				fmt.Println(chatId, " ", exist)
+				//определяем зарегистрирован ли пользователь
+				//_, exist := usersDB[chatId]
+				if exist == 0 {
+					user := UserT{}
+					user.ID = chatId
+					user.Username = username
+					user.FirstName = firstName
+					user.LastName = lastName
+					user.LastVisite = messageTime
+					user.ReqDate = messageTime
+					user.addMessage(text, messageTime)
+
+					_, err := db.Query("INSERT INTO `users`(`id`,`username`,`first_name`,`last_name`, `date_req`) VALUES(?,?, ?, ?,?)", chatId, username, firstName, lastName, messageTime)
+					if err != nil {
+						fmt.Println("Ошибка сохранения пользователя ", err)
+					} else {
+						fmt.Println("пользователь добавлен")
+					}
+
+					usersDB[chatId] = user
+
+				} else {
+					user, _ := usersDB[chatId]
+					user.LastVisite = messageTime
+					user.addMessage(text, messageTime)
+
+					usersDB[chatId] = user
+				}
+
+				// проверка сообщений на важные слова
+				is_important := 0
+				for k := 0; k < len(importansWord); k++ {
+					if strings.Contains(strings.ToLower(text), importansWord[k]) {
+						is_important = 1
+						continue
+					}
+				}
+
+				_, err := db.Query("INSERT INTO `messages`(`user_id`,`content`,`c_time`, `bot_id`, `is_important`) VALUES(?,?, ?,?,?)", chatId, text, messageTime, j+1, is_important)
+				if err != nil {
+					fmt.Println("Ошибка сохранения сообщения ", err)
+				} else {
+					fmt.Println("сообщение добавлено")
+				}
+
+				//сохраняем в файл
+				file, _ := os.Create("db.json")
+				jsonString, _ := json.Marshal(usersDB)
+				file.Write(jsonString)
+
+				//отвечаем пользователю на его сообщение
+				go sendMessage(chatId, text, tokens[j])
+
+			}
+
+			//запоминаем update_id  последнего сообщения
+			lastMessage[j] = responseObj.Result[number-1].UpdateID + 1
+			fmt.Println(usersDB)
+		}
+	}
+
+}
+
+func sendMessage(chatId int, text string, token string) {
+	http.Get(host + token + "/sendMessage?chat_id=" + strconv.Itoa(chatId) + "&text=" + text)
+}

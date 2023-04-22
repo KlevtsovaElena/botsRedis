@@ -1,0 +1,135 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bots Messangers</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="background ">
+
+        <div class="bots_header">
+            <h4>МОИ БОТИКИ</h4>
+            
+            <div class="bots_header_items flex-box">
+                <div class="item">
+                    Ботов: 0
+                </div>
+                <div class="item">
+                    Пользователей: 0
+                </div>
+                <div class="item">
+                    Сообщений: 0
+                </div>
+            </div>
+        </div>
+
+        <div id="bots_container" class="flex-box">
+                
+        </div>
+
+    </div>
+</div>
+
+
+<template id="tmpl-botsContainer">
+    <div class="bot_content">
+        <div class="bot_name">
+            ${botName}
+        </div>
+        <div class="messages_container">
+            <!-- здесь будут все сообщения из шаблона tmpl-messages -->
+            ${messages}
+        </div>
+    </div>
+</template>
+
+<template id="tmpl-message">
+    <div class="message">
+        <div class="username ghost">
+            ${username}
+        </div>
+        <div class="content">
+            ${content}
+        </div>
+        <div class="datetime ghost">
+            ${dateTime}
+        </div>
+    </div>
+</template>
+
+
+
+    
+
+
+    <!-- <div class="messages_container">
+        <div class="message">
+            <div class="username ghost">
+                username
+            </div>
+            <div class="content">
+                Я вам пишу чего же боле. Помогите сапастите, оапорывпаорыпвао,ыорваоврпа
+            </div>
+            <div class="datetime ghost">
+                15.03.23 15:03
+            </div>
+        </div>
+        <div class="message">
+            <div class="username ghost">
+                username
+            </div>
+            <div class="content">
+                Я вам пишу чего же боле. Помогите сапастите, оапорывпаорыпвао,ыорваоврпа
+            </div>
+            <div class="datetime ghost">
+                15.03.23 15:03
+            </div>
+        </div>
+        <div class="message">
+            <div class="username ghost">
+                username
+            </div>
+            <div class="content">
+                Я вам пишу чего же боле. Помогите сапастите, оапорывпаорыпвао,ыорваоврпа
+            </div>
+            <div class="datetime ghost">
+                15.03.23 15:03
+            </div>
+        </div>
+        <div class="message">
+            <div class="username ghost">
+                username
+            </div>
+            <div class="content">
+                Я вам пишу чего же боле. Помогите сапастите, оапорывпаорыпвао,ыорваоврпа
+            </div>
+            <div class="datetime ghost">
+                15.03.23 15:03
+            </div>
+        </div>
+        <div class="message">
+            <div class="username ghost">
+                username
+            </div>
+            <div class="content">
+                Я вам пишу чего же боле. Помогите сапастите, оапорывпаорыпвао,ыорваоврпа
+            </div>
+            <div class="datetime ghost">
+                15.03.23 15:03
+            </div>
+        </div>
+
+    </div> -->
+    <script src="js/main.js"></script>
+</body>
+</html>
+
+
+
+
+
