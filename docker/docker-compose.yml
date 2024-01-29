@@ -27,8 +27,7 @@ services:
       dockerfile: Dockerfile-backend
     volumes:
       - ./../backend/:/app/
-    ports:
-      - 8080:8091
+    restart: always
 
   mysql:
     build:
@@ -37,8 +36,8 @@ services:
     volumes:
       - ./mysql/:/docker-entrypoint-initdb.d
     environment:
-      MYSQL_ROOT_PASSWORD: "nordic123"
-      MYSQL_DATABASE: "inordic"
+      MYSQL_ROOT_PASSWORD: "admin"
+      MYSQL_DATABASE: "messages"
     ports:
       - 3309:3306
 
@@ -57,10 +56,9 @@ services:
       - ./../api/:/app/
     ports:
       - 8081:80
+    restart: always
 
   redis:
     build:
       context: .
       dockerfile: Dockerfile-redis
-    ports:
-      - 6379:6379

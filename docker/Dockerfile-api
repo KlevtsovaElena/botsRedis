@@ -7,4 +7,4 @@ RUN apt-get update --fix-missing
 RUN apt-get install golang -y
 
 
-CMD cd /app && go run api.go
+CMD cd /app && go run main.go
